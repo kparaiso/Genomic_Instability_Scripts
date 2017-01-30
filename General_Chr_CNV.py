@@ -8,6 +8,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 #from collections import OrderedDict
 from sklearn.decomposition import PCA
+from collections import defaultdict
 #import collections
 #import filter_functions as ff
 
@@ -42,13 +43,20 @@ class Aneuploidy:
         self.arm = arm
         self.samples_target = pd.DataFrame()
         self.chr_category = pd.DataFrame()
-    
+        self.instability_scores = defaultdict(float)
+        #self.Instability_score_samples = pd.DataFrame() 
     # remove the normal samples from the segment file
     def remove_normal_samples(self):
         index_ = set(self.snp.index.tolist())
         normal_sample = list(filter(lambda i : i[0].split("-")[3] == ("10A"or"10B"or"11A"or"11B"or"12A"or"12B"or"13A"or"13B"or"14A"or"14B"), index_))       
         self.snp_patients = self.snp.drop(normal_sample, axis=0)
-        print("patients' samples", len(self.snp_patients.index.tolist()))
+        print(self.cancer, "patients' samples", len(self.snp_patients.index.tolist()))
+        # filter keratin and immunome genes
+        immune_keratin_genes = pd.read_excel("/home/rshen/genomic_instability/keratin_immune_etc.xlsx", sheetname="Table S4")
+        immune_keratin_gene_list = immune_keratin_genes["Gene"].tolist()
+        immune_keratin_gene_list_ = list(filter(lambda i : i in self.rsem.index.tolist(), immune_keratin_gene_list))
+        self.rsem.drop(immune_keratin_gene_list_, axis=0, inplace=True)
+        print("immune_keratin_genes removed.")
         return self.snp_patients
         
     # return two lists of samples
@@ -111,7 +119,26 @@ class Aneuploidy:
         print(self.cancer+"_chromosome_"+str(self.chr)+self.arm+self.cond+"altered samples: ", len(self.altered_chr), '\n', 
               self.cancer+"_chromosome_"+"normal samples: ", len(self.normal_chr))
         return self.altered_chr, self.normal_chr
-    
+
+    def calculate_Instability_score(self):
+        sample_index = set([x[0] for x in self.snp_patients.index.tolist()])
+        print("Number of patient samples to calculate instability score:", len(sample_index))
+        for i in sample_index:
+            segments_lens = np.array(self.snp_patients.loc[i].End - self.snp_patients.loc[i].Start)
+            segments_means = np.array(abs(self.snp_patients.loc[i].Segment_Mean))
+            instability_score = np.dot(segments_lens, segments_means)
+            skimmed_index = "-".join(i.split("-")[0:4])
+            self.instability_scores[skimmed_index] = instability_score
+
+        rsem_cols = self.rsem.columns.tolist()
+        rsem_cols = ["-".join(x.split("-")[0:4]) for x in rsem_cols]
+        self.rsem.columns = uniquify(rsem_cols)
+        self.instability_scores = {k : v for k, v in self.instability_scores.items() if k in self.rsem.columns}
+        self.Iscore = pd.DataFrame.from_dict(self.instability_scores,orient='index')
+        self.Iscore.columns = ["instability_score"]
+        self.Iscore.sort_values(axis=0, by="instability_score", ascending=False, inplace=True)
+        self.Instability_score_samples = self.rsem[self.Iscore.index.tolist()]
+
     def set_samples_altered(self, indexCol):
         samples = []
         try:
@@ -144,18 +171,7 @@ class Aneuploidy:
             if i in self.rsem.columns.tolist():
                 samples.append(i)
         self.samples_target = self.rsem[samples]
-#        self.samples_8p.sort_index(axis=1,inplace=True)
-        
-        # filter keratin and immunome genes
-        immune_keratin_genes = pd.read_excel("/home/rshen/genomic_instability/keratin_immune_etc.xlsx",sheetname="Table S4")
-        immune_keratin_gene_list = immune_keratin_genes["Gene"].tolist()
-        for i in immune_keratin_gene_list:
-            try:
-                self.samples_8p = self.samples_8p.drop([i], axis=0)
-            except:
-                continue        
-        #        print(self.samples_8p)
-        return self.samples_target
+#        self.samples_target.sort_index(axis=1,inplace=True)
 #                
     def set_category(self, condition):
         self.chr_category = pd.DataFrame({"Sample_ID": self.samples_target.columns.tolist()})
@@ -172,8 +188,10 @@ class Aneuploidy:
         
     # put normalized or raw_counts in condition
     def output_(self, condition):
-        self.chr_category.to_csv(self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_category_" + condition + ".txt", sep="\t")
-        self.samples_target.to_csv(self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_sameples_" + condition + ".txt", sep="\t")
+        #self.chr_category.to_csv(self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_category_" + condition + ".txt", sep="\t")
+        #self.samples_target.to_csv(self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_sameples_" + condition + ".txt", sep="\t")
+        self.Iscore.to_csv(self.cancer+"_Instability_Score_" + ".txt", sep="\t")
+        self.Instability_score_samples.to_csv(self.cancer+"_Instability_Score_samples" + ".txt", sep="\t")
 
     def PCA_plot(self):
         pca = PCA(n_components=4, whiten=True)
@@ -258,6 +276,36 @@ if __name__ == '__main__':
     UVM_ = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/UVM__broad.mit.edu__genome_wide_snp_6__nocnv_hg19__Aug-04-2015.seg.txt", index_col=[0,1])
     UVM_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/UVM_normalized_results_processed_No_keratin_immune.txt", index_col=0)
 
+    # calculate instability scores
+    BRCA_gainof1q = Aneuploidy("BRCA", BRCA_RNA, BRCA_, 1, "q", "gain")
+    BRCA_gainof1q.remove_normal_samples()
+    BRCA_gainof1q.calculate_Instability_score()
+    BRCA_gainof1q.output_("")
+    # BRCA_gainof1q.chr_CNV(threshold_start=3.6E7)
+    # print("BRCA Grouping done.")
+    # BRCA_gainof1q.set_samples_altered("GeneSymbol")
+    # print("BRCA samples filtering done.")
+    # BRCA_gainof1q.set_category("normalized")
+    # print("BRCA GSEA preparation done.")
+    # BRCA_gainof1q.PCA_plot()
+    # BRCA_gainof1q.output_("normalized")
+
+    SKCM_lossOf18q = Aneuploidy("SKCM", SKCM_RNA, SKCM_, 18, "q", "loss")
+    SKCM_lossOf18q.remove_normal_samples()
+    SKCM_lossOf18q.calculate_Instability_score()
+    SKCM_lossOf18q.output_("")
+
+    UVM_lossOf18q = Aneuploidy("UVM", UVM_RNA, UVM_, 18, "q", "loss")
+    UVM_lossOf18q.remove_normal_samples()
+    UVM_lossOf18q.calculate_Instability_score()
+    UVM_lossOf18q.output_("")
+    
+
+    print("end of ISCORE")
+    
+    from sys import exit
+    exit(0)
+    
     # LOH case, CNV_threshold 0.2
     # BRCA case
     for variation in chr_alter_dict.keys():
@@ -272,8 +320,9 @@ if __name__ == '__main__':
         for chr_arm in chr_alter_dict[key]:
             GNI("UVM", chr_arm[0], chr_arm[1], variation, UVM_, UVM_RNA, 0.2, chr_arm_cufoff[chr_arm])
 
-    # BRCA_gainof1q = Aneuploidy("BRCA", BRCA_RNA, BRCA_, 1, "q", "gain")
-    # BRCA_gainof1q.remove_normal_samples()
+    BRCA_gainof1q = Aneuploidy("BRCA", BRCA_RNA, BRCA_, 1, "q", "gain")
+    BRCA_gainof1q.remove_normal_samples()
+    BRCA_gainof1q.calculate_Instability_score()
     # BRCA_gainof1q.chr_CNV(threshold_start=3.6E7)
     # print("BRCA Grouping done.")
     # BRCA_gainof1q.set_samples_altered("GeneSymbol")
@@ -283,8 +332,13 @@ if __name__ == '__main__':
     # BRCA_gainof1q.PCA_plot()
     # BRCA_gainof1q.output_("normalized")
 
-    # SKCM_lossOf18q = Aneuploidy("SKCM", SKCM_RNA, SKCM_, 18, "q", "loss")
-    # SKCM_lossOf18q.remove_normal_samples()
+    SKCM_lossOf18q = Aneuploidy("SKCM", SKCM_RNA, SKCM_, 18, "q", "loss")
+    SKCM_lossOf18q.remove_normal_samples()
+    SKCM_gainof1q.calculate_Instability_score()
+
+    UVM_lossOf18q = Aneuploidy("UVM", UVM_RNA, UVM_, 18, "q", "loss")
+    UVM_lossOf18q.remove_normal_samples()
+    UVM_gainof1q.calculate_Instability_score()
     # SKCM_lossOf18q.chr_CNV(threshold_start=1.4E7)
     # print("SKCM Grouping done.")
     # SKCM_lossOf18q.set_samples_altered("Genes")

@@ -4,12 +4,11 @@ Analysis for BRCA and SKCM chromosome 8p loss data
 import matplotlib
 import pandas as pd
 import numpy as np
-
-# matplotlib.use("TkAgg")
+matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 from sklearn.decomposition import PCA
 from collections import defaultdict
-import seaborn as sns
+#import seaborn as sns
 from scipy import stats
 from sklearn import preprocessing
 
@@ -113,8 +112,8 @@ class Aneuploidy:
     def __init__(self, cancerType, RSEM_Gene_data, SNP_data, chromosome, arm, cond="loss", wdir=""):
         self.cancer = cancerType
         self.rsem = RSEM_Gene_data
-        # self.snp = SNP_data
-        self.snp_patients = SNP_data
+        self.snp = SNP_data
+        self.snp_patients = pd.DataFrame()
         self.altered_chr = []
         self.normal_chr = []
         self.cond = cond
@@ -327,9 +326,9 @@ class Aneuploidy:
     # put normalized or raw_counts in condition
     def output_(self, condition):
         self.chr_category.to_csv(self.wd+
-            self.cancer + str(self.chr) + self.arm + "_" + self.cond + "_category_0.2" + condition + ".txt", sep="\t")
+            self.cancer + str(self.chr) + self.arm + "_" + self.cond + "_category_" + condition + ".txt", sep="\t")
         self.samples_target.to_csv(self.wd+
-            self.cancer + str(self.chr) + self.arm + "_" + self.cond + "_sameples_0.2" + condition + ".txt", sep="\t")
+            self.cancer + str(self.chr) + self.arm + "_" + self.cond + "_sameples_" + condition + ".txt", sep="\t")
         # self.Iscore.to_csv(self.wd+self.cancer+"_Instability_Score_" + ".txt", sep="\t")
         # self.Instability_score_samples.to_csv(self.wd+self.cancer+"_Instability_Score_samples" + ".txt", sep="\t")
 
@@ -367,7 +366,7 @@ class Aneuploidy:
 
 def GNI(tumor, chr, arm, var, seg, RNA_, CNV_cutoff, start, end, wdir):
     aneuploidy = Aneuploidy(tumor, RNA_, seg, chr, arm, var, wdir)
-    aneuploidy.remove_normal_samples
+    aneuploidy.remove_normal_samples()
     if (arm == "p"):
         aneuploidy.chr_cnv(threshold=CNV_cutoff,
                            threshold_start=start, threshold_end=end)
@@ -379,14 +378,14 @@ def GNI(tumor, chr, arm, var, seg, RNA_, CNV_cutoff, start, end, wdir):
     print(tumor, chr, arm, "Grouping done.")
     aneuploidy.set_samples_altered("GeneSymbol")
     print(tumor, chr, arm, "samples filtering done.")
-    aneuploidy.set_category("normalized")
+    aneuploidy.set_category("raw_counts")
     print(tumor, chr, arm, "GSEA preparation done.")
-    aneuploidy.pca_plot()
-    aneuploidy.output_("normalized")
+    # aneuploidy.pca_plot()
+    aneuploidy.output_("raw_counts")
     return aneuploidy
 
 if __name__ == '__main__':
-    wd = ""
+    wd = "/home/rshen/genomic_instability/chromosome8p/LOH_8p_paper/cnv_correlation_DGE/"
 
     # Investigate the CNV in chromosome 1q gain, 3 loss, 6p gain, 6q loss, 8p
     # loss, 8q gain, 9p loss, 18q loss
@@ -399,12 +398,18 @@ if __name__ == '__main__':
 
     genomic_instability_df = pd.DataFrame()
 
+    # normalized counts
+    # BRCA_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA_normalized_results_simplified.txt", index_col=0)
+
+    # raw counts for DGE analysis
     BRCA_RNA = pd.read_table(
-        "/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA_normalized_results_simplified.txt", index_col=0)
-    BRCA_ = pd.read_table(
-        "./BRCA8p_loss_patients_sameples_ONLY_.txt", index_col=[0, 1])
+        "/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA_genes_results_processed_raw_counts.txt", index_col=0)
+
+    BRCA_ = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA__CNV.seg.txt", index_col=[0, 1])
+
     # LOH case, CNV_threshold 0.2
     # BRCA case
+    cnv_samples = defaultdict(list)
     for variation in chr_alter_dict.keys():
         threshold = 0.3
         if variation == 'gain':
@@ -412,6 +417,10 @@ if __name__ == '__main__':
         for chr_arm in chr_alter_dict[variation]:
             aneuploidy = GNI("BRCA", chr_arm[0], chr_arm[1], variation, BRCA_, BRCA_RNA, threshold, start=chr_arm_cufoff[
                              chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
+            altered_chr = aneuploidy.altered_chr
+            cnv_info = "{}{}_{}".format(chr_arm[0], chr_arm[1], variation)
+            cnv_samples[cnv_info] = altered_chr
+            """
             samples = aneuploidy.samples_target
             altered_chr = aneuploidy.altered_chr
             altered_samples = samples[altered_chr]
@@ -426,7 +435,17 @@ if __name__ == '__main__':
             genomic_instability_df['{}_{}_{}'.format(
                 chr_arm[0], chr_arm[1], variation)] = altered_samples.mean(axis=1)
             # print(genomic_instability_df)
+            """
+    
+    dict_keys = list(cnv_samples.keys())
+    overlap_table = pd.DataFrame(index=dict_keys, columns=dict_keys)
+    for i in dict_keys:
+        for j in dict_keys:
+            overlapping = set(cnv_samples[i]).intersect(set(cnv_samples[j]))
+            overlap_table.set_value(i, j, overlapping)
+    overlap_table.to_csv(wd+"overlapping_between_cnv",sep='\t')
 
+    """
     genomic_instability_df.to_csv(self.wd+"GID.txt", sep='\t')
     # PCA and LDA analysis instead
     genomic_instability_df = pd.read_table(
@@ -439,6 +458,7 @@ if __name__ == '__main__':
     # pca_scatter(pca, standardized, standardized.index)
     # pca_plot(standardized)
     pca_plot(genomic_instability_df.T, "General_all_CNVs")
+    """
 
     # correlation approach doesn't work at all
     """

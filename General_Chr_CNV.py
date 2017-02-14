@@ -264,6 +264,7 @@ def GNI(tumor, chr, arm, var, seg, RNA_, CNV_cutoff, start, end, wdir):
     #aneuploidy.PCA_plot()
     aneuploidy.output_("normalized")
     print("Output done.")
+    return aneuploidy
 
 if __name__ == '__main__':
     wd = "/home/rshen/genomic_instability/general_cases/UVM_trial/"
@@ -297,7 +298,7 @@ if __name__ == '__main__':
             # screenplot(pca, standardized)
             # pca_scatter(pca, standardized, standardized.index)
             # pca_plot(standardized)
-            pca_plot(altered_samples.T, chr_arm[0]+chr_arm[1]+variation)
+            pca_plot(altered_samples.T, str(chr_arm[0])+chr_arm[1]+variation)
             genomic_instability_df['{}_{}_{}'.format(chr_arm[0],chr_arm[1],variation)] = altered_samples.mean(axis=1)
     
     """

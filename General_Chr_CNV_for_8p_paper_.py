@@ -78,8 +78,7 @@ def pca_scatter(pca, standardised_values, classifs):
     sns.lmplot("PC1", "PC2", bar, hue="Class", fit_reg=False)
     plt.savefig("PCA_groups.png")
 
-
-def pca_plot(df):
+def pca_plot(df, cnv):
     pca = PCA(n_components=4, whiten=True)
     transf = pca.fit_transform(df)
     variance_ratio = pca.explained_variance_ratio_
@@ -94,9 +93,9 @@ def pca_plot(df):
     plt.ylabel("PC2: " + str(round(variance_ratio[1], 3)))
     plt.legend(loc='best')
     plt.title("PCA_plot_CNV_in_chromosomes")
-    plt.savefig("PCA_" + "_Feb_12.png", bbox_inches='tight')
+    plt.savefig("PCA_" + cnv + "_Feb_12.png", bbox_inches='tight')
     PCA_loadings = pd.DataFrame(loadings, index=["PC1", "PC2", "PC3", "PC4"], columns=df.columns.tolist())
-    PCA_loadings.to_csv("_PCA_loadings_Feb_12.txt", sep="\t")
+    PCA_loadings.to_csv(cnv+"_PCA_loadings_Feb_12.txt", sep="\t")
 
 # filter the normal samples from the BRCA and SKCM data
 class Aneuploidy:
@@ -340,10 +339,8 @@ def GNI(tumor, chr, arm, var, seg, RNA_, CNV_cutoff, start, end):
     aneuploidy.output_("normalized")
     return aneuploidy
 
-
 if __name__ == '__main__':
     # Investigate the CNV in chromosome 1q gain, 3 loss, 6p gain, 6q loss, 8p loss, 8q gain, 9p loss, 18q loss
-    """
     chr_alter_dict = {"loss": [(3, ''), (6, 'q'), (8, 'p'), (9, 'p'), (18, 'q')],
                       "gain": [(1, 'q'), (6, 'p'), (8, 'q'),(5, 'q')]}
 
@@ -366,9 +363,16 @@ if __name__ == '__main__':
             samples = aneuploidy.samples_target
             altered_chr = aneuploidy.altered_chr
             altered_samples = samples[altered_chr]
+            standardized = preprocessing.scale(altered_samples).T
+            standardized = pd.DataFrame(standardized, index=altered_samples.columns,
+                                        columns=altered_samples.index)
+            # screenplot(pca, standardized)
+            # pca_scatter(pca, standardized, standardized.index)
+            # pca_plot(standardized)
+            pca_plot(altered_samples.T, chr_arm[0]+chr_arm[1]+variation)
             genomic_instability_df['{}_{}_{}'.format(chr_arm[0],chr_arm[1],variation)] = altered_samples.mean(axis=1)
-            print(genomic_instability_df)
-    """
+            # print(genomic_instability_df)
+
     # genomic_instability_df.to_csv("GID.txt",sep='\t')
     # PCA and LDA analysis instead
     genomic_instability_df = pd.read_table("C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/LOH_8p/Correlations/GID.txt", index_col=0)

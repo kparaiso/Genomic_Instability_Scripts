@@ -57,6 +57,7 @@ class Aneuploidy:
         immune_keratin_gene_list_ = list(filter(lambda i : i in self.rsem.index.tolist(), immune_keratin_gene_list))
         self.rsem.drop(immune_keratin_gene_list_, axis=0, inplace=True)
         print("immune_keratin_genes removed.")
+        print("patients' samples", len(set(self.snp_patients.index.tolist())))
         return self.snp_patients
         
     # return two lists of samples
@@ -188,10 +189,10 @@ class Aneuploidy:
         
     # put normalized or raw_counts in condition
     def output_(self, condition):
-        #self.chr_category.to_csv(self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_category_" + condition + ".txt", sep="\t")
-        #self.samples_target.to_csv(self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_sameples_" + condition + ".txt", sep="\t")
-        self.Iscore.to_csv(self.cancer+"_Instability_Score_" + ".txt", sep="\t")
-        self.Instability_score_samples.to_csv(self.cancer+"_Instability_Score_samples" + ".txt", sep="\t")
+        self.chr_category.to_csv(self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_category_" + condition + ".txt", sep="\t")
+        self.samples_target.to_csv(self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_sameples_" + condition + ".txt", sep="\t")
+        #self.Iscore.to_csv(self.cancer+"_Instability_Score_" + ".txt", sep="\t")
+        #self.Instability_score_samples.to_csv(self.cancer+"_Instability_Score_samples" + ".txt", sep="\t")
 
     def PCA_plot(self):
         pca = PCA(n_components=4, whiten=True)
@@ -200,16 +201,14 @@ class Aneuploidy:
         loadings = pca.components_
         fig_sample = plt.gcf()
         fig_sample.set_size_inches(14,14)
-        print(transf)
+        #print(transf)
         plt.xlabel("PC1: " + str(round(variance_ratio[0],3)))
         plt.ylabel("PC2: " + str(round(variance_ratio[1],3)))
         colName = self.samples_target.columns.tolist()
         for n in range(len(colName)):
             if (colName[n] in self.altered_chr):
-                print("altered plot")
                 altered, = plt.plot(transf[n,0],transf[n,1], markersize=8, color='red', alpha=1, label="chromosome"+str(self.chr)+self.arm+"_"+self.cond)
             if (colName[n] in self.normal_chr):
-                print("normal plot")
                 normal, = plt.plot(transf[n,0],transf[n,1], markersize=8, color='blue', alpha=1, label='normal_samples')
         plt.legend(loc='best', scatterpoints=1, handles=[altered, normal])
         plt.title("PCA_plot_" + self.cancer + "_"  + str(self.chr)+self.arm+"_"+self.cond)
@@ -256,15 +255,16 @@ def GNI(tumor, chr, arm, var, seg, RNA_, CNV_cutoff, chr_arm_cutoff):
     print(tumor, chr, arm, "samples filtering done.")
     aneuploidy.set_category("normalized")
     print(tumor, chr, arm, "GSEA preparation done.")
-    aneuploidy.PCA_plot()
+    #aneuploidy.PCA_plot()
     aneuploidy.output_("normalized")
+    print("Output done.")
 
 if __name__ == '__main__':
     # Investigate the CNV in chromosome 1q gain, 3 loss, 6p gain, 6q loss, 8p loss, 8q gain, 9p loss, 18q loss
     chr_alter_dict = {"loss": [(3,''),(6,'q'),(8,'p'),(9,'p'),(18,'q')],"gain":[(1,'q'),(6,'p'),(8,'q')]}
 
     # each chromosome arm's cutoff value in segment files
-    chr_arm_cufoff = {(3,''):0,(6,'q'):6.0E7,(8,'p'):4.5E7,(9,'p'):5.0E7,(6,'p'):6.0E7,(8,'q'):5.0E7,(1,'q'):1.5E8}
+    chr_arm_cufoff = {(3,''):0,(6,'q'):6.0E7,(8,'p'):4.5E7,(9,'p'):5.0E7,(6,'p'):6.0E7,(8,'q'):5.0E7,(1,'q'):1.5E8,(18,'q'):1.5E7}
 
     # read in the segment file and RNA data
     BRCA_ = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA__CNV.seg.txt", index_col=[0,1])
@@ -305,20 +305,19 @@ if __name__ == '__main__':
     
     from sys import exit
     exit(0)
+   
     
-    # LOH case, CNV_threshold 0.2
-    # BRCA case
     for variation in chr_alter_dict.keys():
-        for chr_arm in chr_alter_dict[key]:
-            GNI("BRCA", chr_arm[0], chr_arm[1], variation, BRCA_, BRCA_RNA, 0.2, chr_arm_cufoff[chr_arm])
+        for chr_arm in chr_alter_dict[variation]:
+            GNI("BRCA", chr_arm[0], chr_arm[1], variation, BRCA_, BRCA_RNA, 0.5, chr_arm_cufoff[chr_arm])
+    
+    for variation in chr_alter_dict.keys():
+        for chr_arm in chr_alter_dict[variation]:
+            GNI("SKCM", chr_arm[0], chr_arm[1], variation, SKCM_, SKCM_RNA, 0.5, chr_arm_cufoff[chr_arm])
 
     for variation in chr_alter_dict.keys():
-        for chr_arm in chr_alter_dict[key]:
-            GNI("SKCM", chr_arm[0], chr_arm[1], variation, SKCM_, SKCM_RNA, 0.2, chr_arm_cufoff[chr_arm])
-
-    for variation in chr_alter_dict.keys():
-        for chr_arm in chr_alter_dict[key]:
-            GNI("UVM", chr_arm[0], chr_arm[1], variation, UVM_, UVM_RNA, 0.2, chr_arm_cufoff[chr_arm])
+        for chr_arm in chr_alter_dict[variation]:
+            GNI("UVM", chr_arm[0], chr_arm[1], variation, UVM_, UVM_RNA, 0.5, chr_arm_cufoff[chr_arm])
 
     BRCA_gainof1q = Aneuploidy("BRCA", BRCA_RNA, BRCA_, 1, "q", "gain")
     BRCA_gainof1q.remove_normal_samples()

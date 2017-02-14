@@ -31,6 +31,7 @@ def uniquify(df_columns):
 
 #　draw correlation heatmap
 
+"""
 def hinton(matrix, max_weight=None, ax=None):
     """Draw Hinton diagram for visualizing a weight matrix."""
     ax = ax if ax is not None else plt.gca()
@@ -60,7 +61,7 @@ def hinton(matrix, max_weight=None, ax=None):
 
     ax.autoscale_view()
     ax.invert_yaxis()
-
+"""
 
 def screenplot(pca, standardised_values):
     y = np.std(pca.transform(standardised_values), axis=0)**2
@@ -70,7 +71,6 @@ def screenplot(pca, standardised_values):
     plt.ylabel("Variances")
     plt.show()
     plt.savefig("PCA_variances.png")
-
 
 def pca_scatter(pca, standardised_values, classifs):
     foo = pca.transform(standardised_values)

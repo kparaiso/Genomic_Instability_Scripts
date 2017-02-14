@@ -1,6 +1,7 @@
 """
-Analysis for BRCA and SKCM chromosome 8p loss data
+Analysis for CNV data in different chromosomes
 """
+
 import matplotlib
 matplotlib.use("Agg")
 import pandas as pd
@@ -9,7 +10,9 @@ from matplotlib import pyplot as plt
 #from collections import OrderedDict
 from sklearn.decomposition import PCA
 from collections import defaultdict
-
+import seaborn as sns
+from scipy import stats
+from sklearn import preprocessing
 
 # remove the duplicate columns
 def uniquify(df_columns):
@@ -28,7 +31,7 @@ def pca_scatter(pca, standardised_values, classifs):
     foo = pca.transform(standardised_values)
     bar = pd.DataFrame(list(zip(foo[:, 0], foo[:, 1], classifs)), columns=["PC1", "PC2", "Class"])
     sns.lmplot("PC1", "PC2", bar, hue="Class", fit_reg=False)
-    plt.savefig("PCA_groups.png")
+    plt.savefig(self.wd+"PCA_groups.png")
 
 def pca_plot(df, cnv):
     pca = PCA(n_components=4, whiten=True)
@@ -45,13 +48,13 @@ def pca_plot(df, cnv):
     plt.ylabel("PC2: " + str(round(variance_ratio[1], 3)))
     plt.legend(loc='best')
     plt.title("PCA_plot_CNV_in_chromosomes")
-    plt.savefig("PCA_" + cnv + "_Feb_12.png", bbox_inches='tight')
+    plt.savefig(self.wd+"PCA_" + cnv + "_Feb_12.png", bbox_inches='tight')
     PCA_loadings = pd.DataFrame(loadings, index=["PC1", "PC2", "PC3", "PC4"], columns=df.columns.tolist())
-    PCA_loadings.to_csv(cnv+"_PCA_loadings_Feb_12.txt", sep="\t")
+    PCA_loadings.to_csv(self.wd+cnv+"_PCA_loadings_Feb_12.txt", sep="\t")
 
 class Aneuploidy:
 
-    def __init__(self, cancerType, RSEM_Gene_data, SNP_data, chromosome, arm, cond="loss"):
+    def __init__(self, cancerType, RSEM_Gene_data, SNP_data, chromosome, arm, cond="loss", wdir=""):
         self.cancer = cancerType
         self.rsem = RSEM_Gene_data
         self.snp = SNP_data
@@ -64,6 +67,7 @@ class Aneuploidy:
         self.samples_target = pd.DataFrame()
         self.chr_category = pd.DataFrame()
         self.instability_scores = defaultdict(float)
+        self.wd = wdir
         #self.Instability_score_samples = pd.DataFrame() 
     
     
@@ -214,10 +218,10 @@ class Aneuploidy:
         
     # put normalized or raw_counts in condition
     def output_(self, condition):
-        self.chr_category.to_csv(self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_category_" + condition + ".txt", sep="\t")
-        self.samples_target.to_csv(self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_sameples_" + condition + ".txt", sep="\t")
-        #self.Iscore.to_csv(self.cancer+"_Instability_Score_" + ".txt", sep="\t")
-        #self.Instability_score_samples.to_csv(self.cancer+"_Instability_Score_samples" + ".txt", sep="\t")
+        self.chr_category.to_csv(self.wd+self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_category_" + condition + ".txt", sep="\t")
+        self.samples_target.to_csv(self.wd+self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_sameples_" + condition + ".txt", sep="\t")
+        #self.Iscore.to_csv(self.wd+self.cancer+"_Instability_Score_" + ".txt", sep="\t")
+        #self.Instability_score_samples.to_csv(self.wd+self.cancer+"_Instability_Score_samples" + ".txt", sep="\t")
 
     def PCA_plot(self):
         pca = PCA(n_components=4, whiten=True)
@@ -237,14 +241,13 @@ class Aneuploidy:
                 normal, = plt.plot(transf[n,0],transf[n,1], marker='o', markersize=8, color='blue', alpha=1, label='normal_samples')
         plt.legend(loc='best', scatterpoints=1, handles=[altered, normal])
         plt.title("PCA_plot_" + self.cancer + "_"  + str(self.chr)+self.arm+"_"+self.cond)
-        fig_sample.savefig("PCA_" + self.cancer + '_' + str(self.chr)+self.arm+"_"+self.cond + "_Jan_22.png", dpi=100)
+        fig_sample.savefig(self.wd+"PCA_" + self.cancer + '_' + str(self.chr)+self.arm+"_"+self.cond + "_Jan_22.png", dpi=100)
         PCA_loadings = pd.DataFrame(loadings, index=["PC1", "PC2","PC3","PC4"], columns=self.samples_target.index.tolist())
     #        print(self.cancer, "loadings", loadings)
-        PCA_loadings.to_csv(self.cancer + "_" +str(self.chr)+self.arm+"_"+self.cond +"_PCA_loadings_Jan_22.txt", sep="\t")
+        PCA_loadings.to_csv(self.wd+self.cancer + "_" +str(self.chr)+self.arm+"_"+self.cond +"_PCA_loadings_Jan_22.txt", sep="\t")
         
- 
-def GNI(tumor, chr, arm, var, seg, RNA_, CNV_cutoff, start, end):
-    aneuploidy = Aneuploidy(tumor, RNA_, seg, chr, arm, var)
+def GNI(tumor, chr, arm, var, seg, RNA_, CNV_cutoff, start, end, wdir):
+    aneuploidy = Aneuploidy(tumor, RNA_, seg, chr, arm, var, wdir)
     aneuploidy.remove_normal_samples()
     if (arm == "p"):
         aneuploidy.chr_CNV(threshold=CNV_cutoff, threshold_start=start, threshold_end=end)
@@ -263,6 +266,8 @@ def GNI(tumor, chr, arm, var, seg, RNA_, CNV_cutoff, start, end):
     print("Output done.")
 
 if __name__ == '__main__':
+    wd = "/home/rshen/genomic_instability/general_cases/UVM_trial/"
+
     # Investigate the CNV in chromosome 1q gain, 3 loss, 6p gain, 6q loss, 8p loss, 8q gain, 9p loss, 18q loss
     chr_alter_dict = {"loss": [(3, ''), (6, 'q'), (8, 'p'), (9, 'p'), (18, 'q')],
                       "gain": [(1, 'q'), (6, 'p'), (8, 'q'),(5, 'q')]}
@@ -280,10 +285,9 @@ if __name__ == '__main__':
     UVM_ = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/UVM__broad.mit.edu__genome_wide_snp_6__nocnv_hg19__Aug-04-2015.seg.txt", index_col=[0,1])
     UVM_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/UVM_normalized_results_processed_No_keratin_immune.txt", index_col=0)
     
-   
     for variation in chr_alter_dict.keys():
         for chr_arm in chr_alter_dict[variation]:
-            aneuploidy = GNI("UVM", chr_arm[0], chr_arm[1], variation, UVM_, UVM_RNA, 0.5, start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1])
+            aneuploidy = GNI("UVM", chr_arm[0], chr_arm[1], variation, UVM_, UVM_RNA, 0.5, start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
             samples = aneuploidy.samples_target
             altered_chr = aneuploidy.altered_chr
             altered_samples = samples[altered_chr]

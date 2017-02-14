@@ -373,16 +373,16 @@ if __name__ == '__main__':
             genomic_instability_df['{}_{}_{}'.format(chr_arm[0],chr_arm[1],variation)] = altered_samples.mean(axis=1)
             # print(genomic_instability_df)
 
-    # genomic_instability_df.to_csv("GID.txt",sep='\t')
+    genomic_instability_df.to_csv("GID.txt",sep='\t')
     # PCA and LDA analysis instead
-    genomic_instability_df = pd.read_table("C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/LOH_8p/Correlations/GID.txt", index_col=0)
+    genomic_instability_df = pd.read_table("/home/rshen/genomic_instability/chromosome8p/LOH_8p_paper/GID.txt", index_col=0)
     standardized = preprocessing.scale(genomic_instability_df).T
     standardized = pd.DataFrame(standardized, index=genomic_instability_df.columns, columns=genomic_instability_df.index)
     pca = PCA().fit(standardized)
     # screenplot(pca, standardized)
     # pca_scatter(pca, standardized, standardized.index)
     # pca_plot(standardized)
-    pca_plot(genomic_instability_df.T)
+    pca_plot(genomic_instability_df.T, "General_all_CNVs")
 
     # correlation approach doesn't work at all
     """

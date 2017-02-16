@@ -4,6 +4,7 @@ Analysis for BRCA and SKCM chromosome 8p loss data
 import matplotlib
 import pandas as pd
 import numpy as np
+import pickle as pickle
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 from sklearn.decomposition import PCA
@@ -140,8 +141,7 @@ class Aneuploidy:
         # immune_keratin_gene_list_ = list(filter(lambda i: i in self.rsem.index.tolist(), immune_keratin_gene_list))
         # self.rsem.drop(immune_keratin_gene_list_, axis=0, inplace=True)
         # print("immune_keratin_genes removed.")
-        self.snp_patients.to_csv(self.wd+
-            self.cancer + str(self.chr) + self.arm + "_" + self.cond + "_patients_sameples_ONLY_" + ".txt", sep="\t")
+        # self.snp_patients.to_csv(self.wd+self.cancer + str(self.chr) + self.arm + "_" + self.cond + "_patients_sameples_ONLY_" + ".txt", sep="\t")
         return self.snp_patients
 
     # return two lists of samples
@@ -311,24 +311,24 @@ class Aneuploidy:
         for i in self.chr_category.index.tolist():
             if (i in self.altered_chr):
                 self.chr_category.set_value(
-                    i, "chr" + str(self.chr) + self.arm + "_CNV", "YES")
+                    i, "chr"+str(self.chr) + self.arm + self.cond, "YES")
             elif (i in self.normal_chr):
                 self.chr_category.set_value(
-                    i, "chr" + str(self.chr) + self.arm + "_CNV", "NO")
+                    i, "chr"+str(self.chr) + self.arm + self.cond, "NO")
             else:
                 print(i, "Error! Sample doesn't relate to chromosome " +
                       str(self.chr) + self.arm)
         self.chr_category.sort_values(
-            axis=0, by="chr" + str(self.chr) + self.arm + "_CNV", inplace=True)
+            axis=0, by="chr"+str(self.chr)+self.arm+self.cond, inplace=True)
         self.samples_target = self.samples_target[
             self.chr_category.index.tolist()]
 
     # put normalized or raw_counts in condition
     def output_(self, condition):
         self.chr_category.to_csv(self.wd+
-            self.cancer + str(self.chr) + self.arm + "_" + self.cond + "_category_" + condition + ".txt", sep="\t")
+            self.cancer + '_'+str(self.chr) + self.arm + self.cond + "_category_" + condition + ".txt", sep="\t")
         self.samples_target.to_csv(self.wd+
-            self.cancer + str(self.chr) + self.arm + "_" + self.cond + "_sameples_" + condition + ".txt", sep="\t")
+            self.cancer + '_'+str(self.chr) + self.arm + self.cond + "_sameples_" + condition + ".txt", sep="\t")
         # self.Iscore.to_csv(self.wd+self.cancer+"_Instability_Score_" + ".txt", sep="\t")
         # self.Instability_score_samples.to_csv(self.wd+self.cancer+"_Instability_Score_samples" + ".txt", sep="\t")
 
@@ -436,14 +436,15 @@ if __name__ == '__main__':
                 chr_arm[0], chr_arm[1], variation)] = altered_samples.mean(axis=1)
             # print(genomic_instability_df)
             """
-    
+    pickle.dump(cnv_samples, open(wd+"cnv_samples.pkl",'wb'))
+    print("cnv_samples_dict saved")
     dict_keys = list(cnv_samples.keys())
     overlap_table = pd.DataFrame(index=dict_keys, columns=dict_keys)
     for i in dict_keys:
         for j in dict_keys:
-            overlapping = set(cnv_samples[i]).intersect(set(cnv_samples[j]))
-            overlap_table.set_value(i, j, overlapping)
-    overlap_table.to_csv(wd+"overlapping_between_cnv",sep='\t')
+            overlapping = set(cnv_samples[i]).intersection(set(cnv_samples[j]))
+            overlap_table.set_value(i, j, len(overlapping))
+    overlap_table.to_csv(wd+"overlapping_between_cnv.txt",sep='\t')
 
     """
     genomic_instability_df.to_csv(self.wd+"GID.txt", sep='\t')
@@ -484,18 +485,23 @@ if __name__ == '__main__':
     """
 
     # investigate the cancer stages
-    """
+    
     cancer_stage = pd.read_excel("/home/rshen/genomic_instability/chromosome8p/LOH_8p_paper/BRCA.clin.merged.xlsx", sheetname='Sheet2')
     cancer_stage['patient.stage_event.tnm_categories.pathologic_categories.pathologic_t'] = [i[:2] if len(i) > 2 else i
                          for i in cancer_stage['patient.stage_event.tnm_categories.pathologic_categories.pathologic_t']]
     stage_group = cancer_stage.groupby("patient.stage_event.tnm_categories.pathologic_categories.pathologic_t")
-    altered_samples = ['-'.join(i.split('-')[0:3]).lower() for i in BRCA_lossOf8p.altered_chr]
-    normal_samples = ['-'.join(i.split('-')[0:3]).lower() for i in BRCA_lossOf8p.normal_chr]
-    for key in stage_group.groups.keys():
-        target_samples = list(cancer_stage.loc[stage_group.groups[key]]['patient.bcr_patient_barcode'])
-        print(key, "loss of 8p", len(set(target_samples).intersection(altered_samples))/len(target_samples))
-        print(key, "normal", len(set(target_samples).intersection(normal_samples))/len(target_samples))
+    # altered_samples = ['-'.join(i.split('-')[0:3]).lower() for i in BRCA_lossOf8p.altered_chr]
+    stages = list(stage_group.groups.keys()).sort()
+    stage_data = pd.DataFrame(index=stages, columns=dict_keys)
+
+    for cnv in dict_keys:
+        altered_samples = ['-'.join(i.split('-')[0:3]).lower() for i in cnv_samples[cnv]]
+        for key in stage_group.groups.keys(): 
+            target_samples = list(cancer_stage.loc[stage_group.groups[key]]['patient.bcr_patient_barcode'])
+            stage_data.set_value(key, cnv, len(set(target_samples).intersection(altered_samples))/len(target_samples))
+
+    stage_data.to_csv(wd+"cnv_vs_metastatic_stages.txt",sep="\t")
 
     from sys import exit
     exit(0)
-    """
+    

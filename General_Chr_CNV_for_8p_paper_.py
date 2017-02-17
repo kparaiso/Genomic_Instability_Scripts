@@ -285,13 +285,14 @@ class Aneuploidy:
 
         self.altered_chr = ["-".join(x.split("-")[0:4])
                             for x in self.altered_chr]
-        self.altered_chr = list(filter(lambda i: i.split(
-            "_")[0] in self.altered_chr, self.rsem.columns))
-        self.normal_chr = ["-".join(x.split("-")[0:4])
-                           for x in self.normal_chr]
-        self.normal_chr = list(filter(lambda i: i.split(
-            "_")[0] in self.normal_chr, self.rsem.columns))
-
+        self.altered_chr = list(uniquify(self.altered_chr))
+        # self.altered_chr = list(filter(lambda i: i.split("_")[0] in self.altered_chr, self.rsem.columns))
+        self.altered_chr = list(filter(lambda i: i in self.altered_chr, self.rsem.columns))
+        self.normal_chr = ["-".join(x.split("-")[0:4]) for x in self.normal_chr]
+        self.normal_chr = list(uniquify(self.normal_chr))
+        # self.normal_chr = list(filter(lambda i: i.split("_")[0] in self.normal_chr, self.rsem.columns))
+        self.normal_chr = list(filter(lambda i: i in self.normal_chr, self.rsem.columns))
+        
         cnv_samples = self.altered_chr + self.normal_chr
         print(self.cancer + "_chromosome_" + str(self.chr) + self.arm + self.cond + "altered samples length: ",
               len(self.altered_chr))
@@ -384,7 +385,7 @@ def GNI(tumor, chr, arm, var, seg, RNA_, CNV_cutoff, start, end, wdir):
     return aneuploidy
 
 if __name__ == '__main__':
-    wd = "/home/rshen/genomic_instability/chromosome8p/LOH_8p_paper/correlation/"
+    wd = "/home/rshen/genomic_instability/chromosome8p/LOH_8p_paper/cnv_correlation_DGE/"
 
     # Investigate the CNV in chromosome 1q gain, 3 loss, 6p gain, 6q loss, 8p
     # loss, 8q gain, 9p loss, 18q loss
@@ -398,10 +399,10 @@ if __name__ == '__main__':
     genomic_instability_df = pd.DataFrame()
 
     # normalized counts
-    BRCA_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA_normalized_results_simplified.txt", index_col=0)
+    # BRCA_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA_normalized_results_simplified.txt", index_col=0)
 
     # raw counts for DGE analysis
-    # BRCA_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA_genes_results_processed_raw_counts.txt", index_col=0)
+    BRCA_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA_genes_results_processed_raw_counts.txt", index_col=0)
 
     BRCA_ = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA__CNV.seg.txt", index_col=[0, 1])
 
@@ -449,8 +450,7 @@ if __name__ == '__main__':
     # PCA and LDA analysis instead
     genomic_instability_df = pd.read_table(wd+"BRCA_GID_thres_0.2.txt", index_col=0)
     standardized = preprocessing.scale(genomic_instability_df).T
-    standardized = pd.DataFrame(
-        standardized, index=genomic_instability_df.columns, columns=genomic_instability_df.index)
+    standardized = pd.DataFrame(standardized, index=genomic_instability_df.columns, columns=genomic_instability_df.index)
     pca = PCA().fit(standardized)
     # screenplot(pca, standardized)
     # pca_scatter(pca, standardized, standardized.index)

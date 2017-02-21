@@ -281,8 +281,8 @@ class Aneuploidy:
         # remove duplicate columns and rows
         rsem_cols = self.rsem.columns.tolist()
         rsem_cols = ["-".join(x.split("-")[0:4]) for x in rsem_cols]
-        self.rsem.columns = uniquify(rsem_cols)
-
+        self.rsem.columns = list(uniquify(rsem_cols))
+        
         self.altered_chr = ["-".join(x.split("-")[0:4])
                             for x in self.altered_chr]
         self.altered_chr = list(uniquify(self.altered_chr))
@@ -303,16 +303,18 @@ class Aneuploidy:
             if i in self.rsem.columns.tolist():
                 samples.append(i)
         self.samples_target = self.rsem[samples]
+        self.samples_target.columns = list(uniquify(self.samples_target.columns.tolist()))
+        print(len(self.samples_target.columns.tolist()), len(set(self.samples_target.columns.tolist())))
 
     def set_category(self, condition):
         self.chr_category = pd.DataFrame(
             {"Sample_ID": self.samples_target.columns.tolist()})
         self.chr_category.set_index("Sample_ID", inplace=True)
         for i in self.chr_category.index.tolist():
-            if (i in self.altered_chr):
+            if (i.split("_")[0] in self.altered_chr):
                 self.chr_category.set_value(
                     i, "chr"+str(self.chr) + self.arm + self.cond, "YES")
-            elif (i in self.normal_chr):
+            elif (i.split("_")[0] in self.normal_chr):
                 self.chr_category.set_value(
                     i, "chr"+str(self.chr) + self.arm + self.cond, "NO")
             else:

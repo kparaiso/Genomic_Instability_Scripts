@@ -70,7 +70,6 @@ class Aneuploidy:
         self.wd = wdir
         #self.Instability_score_samples = pd.DataFrame() 
 
-
     # remove the normal samples from the segment file
     def remove_normal_samples(self):
         index_ = set(self.snp.index.tolist())
@@ -262,7 +261,7 @@ def GNI(tumor, chr, arm, var, seg, RNA_, CNV_cutoff, start, end, wdir):
     aneuploidy.set_category("normalized")
     print(tumor, chr, arm, "GSEA preparation done.")
     #aneuploidy.PCA_plot()
-    aneuploidy.output_("normalized")
+    aneuploidy.output_("raw_counts")
     print("Output done.")
     return aneuploidy
 
@@ -273,71 +272,74 @@ if __name__ == '__main__':
     chr_alter_dict = {"loss": [(3, ''), (6, 'q'), (8, 'p'), (9, 'p'), (18, 'q')],
                       "gain": [(1, 'q'), (6, 'p'), (8, 'q'),(5, 'q')]}
     # each chromosome arm's cutoff value in segment files
-    chr_arm_cufoff = {(3, ''): (0, 0), (6, 'q'): (6.0E7, 1.7E8), (8, 'p'): (2E7, 4.5E7), (9, 'p'): (5.0E7, 1.4E8), (6, 'p'): (1E6, 6.0E7), 
+    chr_arm_cufoff = {(3, ''): (0, 0), (6, 'q'): (6.0E7, 1.7E8), (8, 'p'): (2E7, 4.5E7), (9, 'p'): (5.0E7, 1.4E8), (6, 'p'): (1E6, 6.0E7),
                       (8, 'q'): (4.8E7, 1.5E8), (1, 'q'): (1.3E8, 2.5E8), (5, 'q'): (5E7, 1.8E8),  (18, 'q'): (1.9E7, 7.7E7)}
     
     # read in the segment file and RNA data
     BRCA_ = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA__CNV.seg.txt", index_col=[0,1])
-    BRCA_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA_normalized_results_simplified.txt", index_col=0)
+    # BRCA_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA_normalized_results_simplified.txt", index_col=0)
+    BRCA_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/BRCA_genes_results_processed_raw_counts.txt", index_col=0)
 
     SKCM_ = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/SKCM__CNV.seg.txt", index_col=[0,1])
-    SKCM_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/SKCM_normalized_results_simplified.txt", index_col=0)
+    # SKCM_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/SKCM_normalized_results_simplified.txt", index_col=0)
+    SKCM_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/SKCM_genes_results_processed_raw_counts.txt", index_col=0)
 
     UVM_ = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/UVM__broad.mit.edu__genome_wide_snp_6__nocnv_hg19__Aug-04-2015.seg.txt", index_col=[0,1])
-    UVM_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/UVM_normalized_results_processed_No_keratin_immune.txt", index_col=0)
-    
+    # UVM_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/UVM_normalized_results_processed_No_keratin_immune.txt", index_col=0)
+    UVM_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/UVM_raw_counts_.txt", index_col=0)
+
     for variation in chr_alter_dict.keys():
         for chr_arm in chr_alter_dict[variation]:
             aneuploidy = GNI("UVM0.2", chr_arm[0], chr_arm[1], variation, UVM_, UVM_RNA, 0.2, 
                              start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
-            samples = aneuploidy.samples_target
-            altered_chr = aneuploidy.altered_chr
-            altered_samples = samples[altered_chr]
-            standardized = preprocessing.scale(altered_samples).T
-            standardized = pd.DataFrame(standardized, index=altered_samples.columns,
-                                        columns=altered_samples.index)
-            # screenplot(pca, standardized)
-            # pca_scatter(pca, standardized, standardized.index)
-            # pca_plot(standardized)
-            pca_plot(altered_samples.T, str(chr_arm[0])+chr_arm[1]+variation)
-            genomic_instability_df['{}_{}_{}'.format(chr_arm[0],chr_arm[1],variation)] = altered_samples.mean(axis=1)
-            genomic_instability_df.to_csv(wd+"BRCA_GID_thres_0.2.txt", sep='\t')
+            # samples = aneuploidy.samples_target
+            # altered_chr = aneuploidy.altered_chr
+            # altered_samples = samples[altered_chr]
+            # standardized = preprocessing.scale(altered_samples).T
+            # standardized = pd.DataFrame(standardized, index=altered_samples.columns,
+            #                             columns=altered_samples.index)
+            # # screenplot(pca, standardized)
+            # # pca_scatter(pca, standardized, standardized.index)
+            # # pca_plot(standardized)
+            # pca_plot(altered_samples.T, str(chr_arm[0])+chr_arm[1]+variation)
+            # genomic_instability_df['{}_{}_{}'.format(chr_arm[0],chr_arm[1],variation)] = altered_samples.mean(axis=1)
+            # genomic_instability_df.to_csv(wd+"BRCA_GID_thres_0.2.txt", sep='\t')
     
 
     for variation in chr_alter_dict.keys():
         for chr_arm in chr_alter_dict[variation]:
             aneuploidy = GNI("BRCA0.2", chr_arm[0], chr_arm[1], variation, BRCA_, BRCA_RNA, 0.2, 
                          start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
-            samples = aneuploidy.samples_target
-            altered_chr = aneuploidy.altered_chr
-            altered_samples = samples[altered_chr]
-            standardized = preprocessing.scale(altered_samples).T
-            standardized = pd.DataFrame(standardized, index=altered_samples.columns,
-                                        columns=altered_samples.index)
-            # screenplot(pca, standardized)
-            # pca_scatter(pca, standardized, standardized.index)
-            # pca_plot(standardized)
-            pca_plot(altered_samples.T, str(chr_arm[0])+chr_arm[1]+variation)
-            genomic_instability_df['{}_{}_{}'.format(chr_arm[0],chr_arm[1],variation)] = altered_samples.mean(axis=1)
-            genomic_instability_df.to_csv(wd+"UVM_GID_thres_0.2.txt", sep='\t')
+            # samples = aneuploidy.samples_target
+            # altered_chr = aneuploidy.altered_chr
+            # altered_samples = samples[altered_chr]
+            # standardized = preprocessing.scale(altered_samples).T
+            # standardized = pd.DataFrame(standardized, index=altered_samples.columns,
+            #                             columns=altered_samples.index)
+            # # screenplot(pca, standardized)
+            # # pca_scatter(pca, standardized, standardized.index)
+            # # pca_plot(standardized)
+            # pca_plot(altered_samples.T, str(chr_arm[0])+chr_arm[1]+variation)
+            # genomic_instability_df['{}_{}_{}'.format(chr_arm[0],chr_arm[1],variation)] = altered_samples.mean(axis=1)
+            # genomic_instability_df.to_csv(wd+"UVM_GID_thres_0.2.txt", sep='\t')
     
 
     for variation in chr_alter_dict.keys():
         for chr_arm in chr_alter_dict[variation]:
             aneuploidy = GNI("SKCM0.2", chr_arm[0], chr_arm[1], variation, SKCM_, SKCM_RNA, 0.2, 
                             start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
-            samples = aneuploidy.samples_target
-            altered_chr = aneuploidy.altered_chr
-            altered_samples = samples[altered_chr]
-            standardized = preprocessing.scale(altered_samples).T
-            standardized = pd.DataFrame(standardized, index=altered_samples.columns,
-                                        columns=altered_samples.index)
-            # screenplot(pca, standardized)
-            # pca_scatter(pca, standardized, standardized.index)
-            # pca_plot(standardized)
-            pca_plot(altered_samples.T, str(chr_arm[0])+chr_arm[1]+variation)
-            genomic_instability_df['{}_{}_{}'.format(chr_arm[0],chr_arm[1],variation)] = altered_samples.mean(axis=1)
-            genomic_instability_df.to_csv(wd+"SKCM_GID_thres_0.2.txt", sep='\t')
+            # samples = aneuploidy.samples_target
+            # altered_chr = aneuploidy.altered_chr
+            # altered_samples = samples[altered_chr]
+            # standardized = preprocessing.scale(altered_samples).T
+            # standardized = pd.DataFrame(standardized, index=altered_samples.columns,
+            #                             columns=altered_samples.index)
+            # # screenplot(pca, standardized)
+            # # pca_scatter(pca, standardized, standardized.index)
+            # # pca_plot(standardized)
+            # pca_plot(altered_samples.T, str(chr_arm[0])+chr_arm[1]+variation)
+            # genomic_instability_df['{}_{}_{}'.format(chr_arm[0],chr_arm[1],variation)] = altered_samples.mean(axis=1)
+            # genomic_instability_df.to_csv(wd+"SKCM_GID_thres_0.2.txt", sep='\t')
 
     # calculate instability scores
     """

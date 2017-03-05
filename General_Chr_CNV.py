@@ -69,8 +69,8 @@ class Aneuploidy:
         self.instability_scores = defaultdict(float)
         self.wd = wdir
         #self.Instability_score_samples = pd.DataFrame() 
-    
-    
+
+
     # remove the normal samples from the segment file
     def remove_normal_samples(self):
         index_ = set(self.snp.index.tolist())
@@ -136,8 +136,7 @@ class Aneuploidy:
                 segment_ends = np.array(self.snp_patients.loc[i].End)
                 segment_starts = np.array(self.snp_patients.loc[i].Start)
                 segment_means = np.array(self.snp_patients.loc[i].Segment_Mean)
-                segment_start = np.array(
-                    list(filter(lambda x: x > threshold_start, segment_starts)) + [threshold_start])
+                segment_start = np.array(list(filter(lambda x: x > threshold_start, segment_starts)) + [threshold_start])
                 segment_end = segment_ends[::-1][:len(segment_start)]
                 segment_lengths = segment_end - segment_start
                 segment_length = np.array(list(filter(lambda x: x > 0, segment_lengths)))
@@ -186,6 +185,7 @@ class Aneuploidy:
         # remove duplicate columns and rows
         rsem_cols = self.rsem.columns.tolist()
         rsem_cols = ["-".join(x.split("-")[0:4]) for x in rsem_cols]
+        self.rsem = self.rsem.loc[:,~self.rsem.columns.duplicated()]
         self.rsem.columns = uniquify(rsem_cols)
         
         self.altered_chr = ["-".join(x.split("-")[0:4]) for x in self.altered_chr]
@@ -208,9 +208,9 @@ class Aneuploidy:
         self.chr_category.set_index("Sample_ID",inplace=True)
         for i in self.chr_category.index.tolist():
             if (i in self.altered_chr):
-                self.chr_category.set_value(i, "chr"+str(self.chr)+self.arm+"_CNV", "YES")
+                self.chr_category.set_value(i, "cnv", "YES")
             elif (i in self.normal_chr):
-                self.chr_category.set_value(i, "chr"+str(self.chr)+self.arm+"_CNV", "NO")
+                self.chr_category.set_value(i, "cnv", "NO")
             else:
                 print(i, "Error! Sample doesn't relate to chromosome "+str(self.chr)+self.arm)
         self.chr_category.sort_values(axis=0, by="chr"+str(self.chr)+self.arm+"_CNV", inplace=True)
@@ -267,7 +267,7 @@ def GNI(tumor, chr, arm, var, seg, RNA_, CNV_cutoff, start, end, wdir):
     return aneuploidy
 
 if __name__ == '__main__':
-    wd = "/home/rshen/genomic_instability/general_cases/UVM_trial/"
+    wd = "/home/rshen/genomic_instability/chromosome8p/LOH_8p_paper/cnv_correlation_DGE/"
 
     # Investigate the CNV in chromosome 1q gain, 3 loss, 6p gain, 6q loss, 8p loss, 8q gain, 9p loss, 18q loss
     chr_alter_dict = {"loss": [(3, ''), (6, 'q'), (8, 'p'), (9, 'p'), (18, 'q')],
@@ -288,7 +288,8 @@ if __name__ == '__main__':
     
     for variation in chr_alter_dict.keys():
         for chr_arm in chr_alter_dict[variation]:
-            aneuploidy = GNI("UVM", chr_arm[0], chr_arm[1], variation, UVM_, UVM_RNA, 0.5, start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
+            aneuploidy = GNI("UVM0.2", chr_arm[0], chr_arm[1], variation, UVM_, UVM_RNA, 0.2, 
+                             start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
             samples = aneuploidy.samples_target
             altered_chr = aneuploidy.altered_chr
             altered_samples = samples[altered_chr]
@@ -300,16 +301,43 @@ if __name__ == '__main__':
             # pca_plot(standardized)
             pca_plot(altered_samples.T, str(chr_arm[0])+chr_arm[1]+variation)
             genomic_instability_df['{}_{}_{}'.format(chr_arm[0],chr_arm[1],variation)] = altered_samples.mean(axis=1)
+            genomic_instability_df.to_csv(wd+"BRCA_GID_thres_0.2.txt", sep='\t')
     
-    """
+
     for variation in chr_alter_dict.keys():
         for chr_arm in chr_alter_dict[variation]:
-            GNI("BRCA", chr_arm[0], chr_arm[1], variation, BRCA_, BRCA_RNA, 0.5, start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1])
+            aneuploidy = GNI("BRCA0.2", chr_arm[0], chr_arm[1], variation, BRCA_, BRCA_RNA, 0.2, 
+                         start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
+            samples = aneuploidy.samples_target
+            altered_chr = aneuploidy.altered_chr
+            altered_samples = samples[altered_chr]
+            standardized = preprocessing.scale(altered_samples).T
+            standardized = pd.DataFrame(standardized, index=altered_samples.columns,
+                                        columns=altered_samples.index)
+            # screenplot(pca, standardized)
+            # pca_scatter(pca, standardized, standardized.index)
+            # pca_plot(standardized)
+            pca_plot(altered_samples.T, str(chr_arm[0])+chr_arm[1]+variation)
+            genomic_instability_df['{}_{}_{}'.format(chr_arm[0],chr_arm[1],variation)] = altered_samples.mean(axis=1)
+            genomic_instability_df.to_csv(wd+"UVM_GID_thres_0.2.txt", sep='\t')
     
+
     for variation in chr_alter_dict.keys():
         for chr_arm in chr_alter_dict[variation]:
-            GNI("SKCM", chr_arm[0], chr_arm[1], variation, SKCM_, SKCM_RNA, 0.5, start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1])
-    """
+            aneuploidy = GNI("SKCM0.2", chr_arm[0], chr_arm[1], variation, SKCM_, SKCM_RNA, 0.2, 
+                            start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
+            samples = aneuploidy.samples_target
+            altered_chr = aneuploidy.altered_chr
+            altered_samples = samples[altered_chr]
+            standardized = preprocessing.scale(altered_samples).T
+            standardized = pd.DataFrame(standardized, index=altered_samples.columns,
+                                        columns=altered_samples.index)
+            # screenplot(pca, standardized)
+            # pca_scatter(pca, standardized, standardized.index)
+            # pca_plot(standardized)
+            pca_plot(altered_samples.T, str(chr_arm[0])+chr_arm[1]+variation)
+            genomic_instability_df['{}_{}_{}'.format(chr_arm[0],chr_arm[1],variation)] = altered_samples.mean(axis=1)
+            genomic_instability_df.to_csv(wd+"SKCM_GID_thres_0.2.txt", sep='\t')
 
     # calculate instability scores
     """
@@ -317,14 +345,6 @@ if __name__ == '__main__':
     BRCA_gainof1q.remove_normal_samples()
     BRCA_gainof1q.calculate_Instability_score()
     BRCA_gainof1q.output_("")
-    # BRCA_gainof1q.chr_CNV(threshold_start=3.6E7)
-    # print("BRCA Grouping done.")
-    # BRCA_gainof1q.set_samples_altered("GeneSymbol")
-    # print("BRCA samples filtering done.")
-    # BRCA_gainof1q.set_category("normalized")
-    # print("BRCA GSEA preparation done.")
-    # BRCA_gainof1q.PCA_plot()
-    # BRCA_gainof1q.output_("normalized")
 
     SKCM_lossOf18q = Aneuploidy("SKCM", SKCM_RNA, SKCM_, 18, "q", "loss")
     SKCM_lossOf18q.remove_normal_samples()

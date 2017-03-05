@@ -281,6 +281,7 @@ class Aneuploidy:
         # remove duplicate columns and rows
         rsem_cols = self.rsem.columns.tolist()
         rsem_cols = ["-".join(x.split("-")[0:4]) for x in rsem_cols]
+        self.rsem = self.rsem.loc[:,~self.rsem.columns.duplicated()]
         self.rsem.columns = list(uniquify(rsem_cols))
         
         self.altered_chr = ["-".join(x.split("-")[0:4])
@@ -415,8 +416,8 @@ if __name__ == '__main__':
         if variation == 'gain':
             threshold = 0.58
         for chr_arm in chr_alter_dict[variation]:
-            aneuploidy = GNI("BRCA", chr_arm[0], chr_arm[1], variation, BRCA_, BRCA_RNA, threshold, start=chr_arm_cufoff[
-                             chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
+            aneuploidy = GNI("BRCA", chr_arm[0], chr_arm[1], variation, BRCA_, BRCA_RNA, threshold, 
+                             start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
             altered_chr = aneuploidy.altered_chr
             cnv_info = "{}{}_{}".format(chr_arm[0], chr_arm[1], variation)
             cnv_samples[cnv_info] = altered_chr

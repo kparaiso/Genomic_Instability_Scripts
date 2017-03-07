@@ -188,10 +188,14 @@ class Aneuploidy:
         self.rsem.columns = uniquify(rsem_cols)
         
         self.altered_chr = ["-".join(x.split("-")[0:4]) for x in self.altered_chr]
-        self.altered_chr = list(filter(lambda i : i.split("_")[0] in self.altered_chr, self.rsem.columns))
+        self.altered_chr = list(uniquify(self.altered_chr))
+        # self.altered_chr = list(filter(lambda i : i.split("_")[0] in self.altered_chr, self.rsem.columns))
+        self.altered_chr = list(filter(lambda i: i in self.altered_chr, self.rsem.columns))
         self.normal_chr = ["-".join(x.split("-")[0:4]) for x in self.normal_chr]
-        self.normal_chr = list(filter(lambda i : i.split("_")[0] in self.normal_chr, self.rsem.columns))
-        
+        self.normal_chr = list(uniquify(self.normal_chr))
+        # self.normal_chr = list(filter(lambda i : i.split("_")[0] in self.normal_chr, self.rsem.columns))
+        self.normal_chr = list(filter(lambda i: i in self.normal_chr, self.rsem.columns))
+
 #        print("altered_chr samples: ", self.altered_chr, '\n', "No_altered_chr samples: ", self.no_altered_chr)
         CNV_samples = self.altered_chr + self.normal_chr
         print(self.cancer+"_chromosome_"+str(self.chr)+self.arm+self.cond+"altered samples length: ", len(self.altered_chr)/len(rsem_cols))
@@ -201,14 +205,15 @@ class Aneuploidy:
             if i in self.rsem.columns.tolist():
                 samples.append(i)
         self.samples_target = self.rsem[samples]
+        self.samples_target.columns = list(set(uniquify(self.samples_target.columns.tolist())))
                 
     def set_category(self, condition):
         self.chr_category = pd.DataFrame({"Sample_ID": self.samples_target.columns.tolist()})
         self.chr_category.set_index("Sample_ID",inplace=True)
         for i in self.chr_category.index.tolist():
-            if (i in self.altered_chr):
+            if (i.split("_")[0] in self.altered_chr):
                 self.chr_category.set_value(i, "cnv", "YES")
-            elif (i in self.normal_chr):
+            elif (i.split("_")[0] in self.normal_chr):
                 self.chr_category.set_value(i, "cnv", "NO")
             else:
                 print(i, "Error! Sample doesn't relate to chromosome "+str(self.chr)+self.arm)
@@ -288,11 +293,11 @@ if __name__ == '__main__':
     # UVM_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/UVM_normalized_results_processed_No_keratin_immune.txt", index_col=0)
     UVM_RNA = pd.read_table("/home/rshen/genomic_instability/chromosome8p/TCGA_data/UVM_raw_counts_.txt", index_col=0)
 
-    for variation in chr_alter_dict.keys():
-        for chr_arm in chr_alter_dict[variation]:
-            aneuploidy = GNI("UVM0.2", chr_arm[0], chr_arm[1], variation, UVM_, UVM_RNA, 0.2, 
-                             start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
-            # samples = aneuploidy.samples_target
+    # for variation in chr_alter_dict.keys():
+    #     for chr_arm in chr_alter_dict[variation]:
+    #         aneuploidy = GNI("UVM0.2", chr_arm[0], chr_arm[1], variation, UVM_, UVM_RNA, 0.2, 
+    #                          start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
+    #         # samples = aneuploidy.samples_target
             # altered_chr = aneuploidy.altered_chr
             # altered_samples = samples[altered_chr]
             # standardized = preprocessing.scale(altered_samples).T
@@ -324,10 +329,10 @@ if __name__ == '__main__':
             # genomic_instability_df.to_csv(wd+"UVM_GID_thres_0.2.txt", sep='\t')
     
 
-    for variation in chr_alter_dict.keys():
-        for chr_arm in chr_alter_dict[variation]:
-            aneuploidy = GNI("SKCM0.2", chr_arm[0], chr_arm[1], variation, SKCM_, SKCM_RNA, 0.2, 
-                            start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
+    # for variation in chr_alter_dict.keys():
+    #     for chr_arm in chr_alter_dict[variation]:
+    #         aneuploidy = GNI("SKCM0.2", chr_arm[0], chr_arm[1], variation, SKCM_, SKCM_RNA, 0.2, 
+    #                         start=chr_arm_cufoff[chr_arm][0], end=chr_arm_cufoff[chr_arm][1], wdir=wd)
             # samples = aneuploidy.samples_target
             # altered_chr = aneuploidy.altered_chr
             # altered_samples = samples[altered_chr]

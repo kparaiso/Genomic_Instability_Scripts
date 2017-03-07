@@ -273,8 +273,7 @@ class Aneuploidy:
     def set_samples_altered(self, indexCol):
         samples = []
         try:
-            self.rsem = self.rsem.reset_index().drop_duplicates(
-                subset=indexCol, keep='last').set_index(indexCol)
+            self.rsem = self.rsem.reset_index().drop_duplicates(subset=indexCol, keep='last').set_index(indexCol)
         except:
             print("Wrong input for index column name")
 
@@ -304,7 +303,7 @@ class Aneuploidy:
             if i in self.rsem.columns.tolist():
                 samples.append(i)
         self.samples_target = self.rsem[samples]
-        self.samples_target.columns = list(uniquify(self.samples_target.columns.tolist()))
+        self.samples_target.columns = list(set(uniquify(self.samples_target.columns.tolist())))
         print(len(self.samples_target.columns.tolist()), len(set(self.samples_target.columns.tolist())))
 
     def set_category(self, condition):

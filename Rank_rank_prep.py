@@ -8,6 +8,7 @@ Created on Wed Oct  5 10:20:33 2016
 import pandas as pd
 from os.path import join
 from os import walk, listdir
+from collections import defaultdict
 
 
 def generate_rrho_file(input_file, wd):
@@ -117,20 +118,48 @@ def go_through_GSEA(wd):
                 continue
 
 
+def geneset_overlap_cancers(wd):
+    gsea_dir = [x[1] for x in walk(wd)][0]
+    all_cancer_cnv = pd.DataFrame()
+    for i in range(len(gsea_dir)):
+        cancer_cnv = '-'.join((gsea_dir[i].split('.')[0]).split('_')[2:])
+        na_pos = ''
+        na_neg = ''
+        files_i = listdir(join(wd, gsea_dir[i]))
+        wd_i = wd + gsea_dir[i]
+        for f in files_i:
+            if ("gsea_report_for_YES" in f or "gsea_report_for_na_pos" in f) and (".xls" in f):
+                na_pos = f
+            if ("gsea_report_for_NO" in f or "gsea_report_for_na_neg" in f) and (".xls" in f):
+                na_neg = f
+        df1 = pd.read_table(join(wd_i, na_pos), index_col=0)
+        df2 = pd.read_table(join(wd_i, na_neg), index_col=0)
+        df_i = pd.concat([df1, df2])
+        print(df_i['NES'])
+        if (len(all_cancer_cnv.index)):
+            all_cancer_cnv[cancer_cnv] = df_i['NES']
+        else:
+            all_cancer_cnv = pd.DataFrame(index=df_i.index)  
+            all_cancer_cnv[cancer_cnv] = df_i['NES']
+    
+    all_cancer_cnv.to_excel(wd+"All_cancers_CNV_NES_Score__.xlsx")
+    
+
 if __name__ == "__main__":
 #    wd = "C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/LOH_8p/Correlations"
     # wd = "C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/LOH_8p/Correlations/DGE_stages/"
     # filename = "GID.txt"
 #    input_f = join(wd, filename)
 #    generate_rrho_file(input_f, wd)
-    rank_rank_files = [x[2] for x in walk(wd)][0]
-    for i in range(len(rank_rank_files)-2):
-        for j in range(i+1, len(rank_rank_files)-2):
-            if ("YES" in rank_rank_files[i] and "YES" in rank_rank_files[j]):
-                file1 = join(wd, rank_rank_files[i])
-                print(file1)
-                file2 = join(wd, rank_rank_files[j])
-                generate_rrho_file_2(file1, file2, wd)
+#    rank_rank_files = [x[2] for x in walk(wd)][0]
+#    for i in range(len(rank_rank_files)-2):
+#        for j in range(i+1, len(rank_rank_files)-2):
+#            if ("YES" in rank_rank_files[i] and "YES" in rank_rank_files[j]):
+#                file1 = join(wd, rank_rank_files[i])
+#                print(file1)
+#                file2 = join(wd, rank_rank_files[j])
+#                generate_rrho_file_2(file1, file2, wd)
 
-    wd = "C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/Winter_2017/Thres_0.2/"
-    go_through_GSEA(wd)
+    wd = "C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/Winter_2017/Thres_0.2_GSEA/"
+    # go_through_GSEA(wd)
+    geneset_overlap_cancers(wd)

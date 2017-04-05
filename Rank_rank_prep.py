@@ -144,11 +144,35 @@ def geneset_overlap_cancers(wd):
     
     all_cancer_cnv.to_excel(wd+"All_cancers_CNV_NES_Score__.xlsx")
     
+    
+def genes_overlaps_DGE(wd):
+    dge_dir = [x[1] for x in walk(wd)][0]
+    dge_df = pd.DataFrame()
+    for i in range(len(dge_dir)):
+        cancer = dge_dir[i].split("_")[0]
+        path_i = join(wd, dge_dir[i])
+        files_i = [f for f in listdir(path_i) if f.endswith('.txt')]
+        for f in files_i:
+            cnv = f.split("_")[0]
+            df_i = pd.read_table(join(path_i, f), index_col=0)
+            df_i = df_i[df_i.padj < 0.05]
+            if (len(dge_df.index)):
+                dge_df = pd.concat([dge_df, df_i.log2FoldChange.to_frame()], axis=1)
+                # dge_df.merge(df_i.log2FoldChange.to_frame(), left_on=dge_df.index, right_on=df_i.index, how="outer")
+                dge_df.rename(columns={"log2FoldChange" : cancer+cnv}, inplace=True)
+            else:
+                dge_df = pd.DataFrame(df_i.log2FoldChange)
+                dge_df.rename(columns={"log2FoldChange" : cancer+cnv}, inplace=True)
+                
+    dge_df.to_excel(wd+"cnv_dge_log2foldchange.xlsx")
+
 
 if __name__ == "__main__":
+    # Correlation investigation
+    # =================================================================================================
 #    wd = "C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/LOH_8p/Correlations"
-    # wd = "C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/LOH_8p/Correlations/DGE_stages/"
-    # filename = "GID.txt"
+#    wd = "C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/LOH_8p/Correlations/DGE_stages/"
+#    filename = "GID.txt"
 #    input_f = join(wd, filename)
 #    generate_rrho_file(input_f, wd)
 #    rank_rank_files = [x[2] for x in walk(wd)][0]
@@ -159,7 +183,17 @@ if __name__ == "__main__":
 #                print(file1)
 #                file2 = join(wd, rank_rank_files[j])
 #                generate_rrho_file_2(file1, file2, wd)
+    # =================================================================================================
 
-    wd = "C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/Winter_2017/Thres_0.2_GSEA/"
-    # go_through_GSEA(wd)
-    geneset_overlap_cancers(wd)
+
+    # GSEA threshold 0.2
+    # ================================================================================================
+#    wd_gsea = "C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/Winter_2017/Thres_0.2_GSEA/"
+#    geneset_overlap_cancers(wd_gsea)
+    # ================================================================================================
+    
+    
+    # DGE threshold 0.2
+    wd_dge = "C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/Winter_2017/Thres_0.2_DGE_All_Genes/"
+    genes_overlaps_DGE(wd_dge)
+    

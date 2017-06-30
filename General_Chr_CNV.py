@@ -1,18 +1,21 @@
 """
 Analysis for CNV data in different chromosomes
+Author: Runxi Shen
 """
 
-import matplotlib
-matplotlib.use("Agg")
+
+import os
 import pandas as pd
 import numpy as np
-from matplotlib import pyplot as plt
-#from collections import OrderedDict
+import matplotlib
+import seaborn as sns
 from sklearn.decomposition import PCA
 from collections import defaultdict
-import seaborn as sns
-from scipy import stats
+from matplotlib import pyplot as plt
 from sklearn import preprocessing
+# for linux server
+matplotlib.use("Agg")
+
 
 # remove the duplicate columns
 def uniquify(df_columns):
@@ -27,11 +30,13 @@ def uniquify(df_columns):
         seen.add(newitem)
     return list(seen)
 
+
 def pca_scatter(pca, standardised_values, classifs):
     foo = pca.transform(standardised_values)
     bar = pd.DataFrame(list(zip(foo[:, 0], foo[:, 1], classifs)), columns=["PC1", "PC2", "Class"])
     sns.lmplot("PC1", "PC2", bar, hue="Class", fit_reg=False)
-    plt.savefig(self.wd+"PCA_groups.png")
+    plt.savefig("PCA_groups.png")
+
 
 def pca_plot(df, cnv):
     pca = PCA(n_components=4, whiten=True)
@@ -48,13 +53,31 @@ def pca_plot(df, cnv):
     plt.ylabel("PC2: " + str(round(variance_ratio[1], 3)))
     plt.legend(loc='best')
     plt.title("PCA_plot_CNV_in_chromosomes")
-    plt.savefig(self.wd+"PCA_" + cnv + "_Feb_12.png", bbox_inches='tight')
+    plt.savefig("PCA_" + cnv + "_Feb_12.png", bbox_inches='tight')
     PCA_loadings = pd.DataFrame(loadings, index=["PC1", "PC2", "PC3", "PC4"], columns=df.columns.tolist())
-    PCA_loadings.to_csv(self.wd+cnv+"_PCA_loadings_Feb_12.txt", sep="\t")
+    PCA_loadings.to_csv(cnv+"_PCA_loadings_Feb_12.txt", sep="\t")
+
 
 class Aneuploidy:
 
+    """
+    Group the patients of different cancer types by their genomic instability signatures (CNV in chromosomes)
+    Output the files for the DGE analysis in R
+    """
+
     def __init__(self, cancerType, RSEM_Gene_data, SNP_data, chromosome, arm, cond="loss", wdir=""):
+        """
+
+        Initialize the class with required data: DNA and RNA data of the patients with specific cancer
+
+        :param cancerType: the cancer type of interest
+        :param RSEM_Gene_data: RNA seq data of patients
+        :param SNP_data: DNA segment mean data of patients
+        :param chromosome: the chromosome of interest with the copy number variation (CNV)
+        :param arm: the chromosomal arm of interest
+        :param cond: the loss or gain signature in CNV
+        :param wdir: the working directory for file output
+        """
         self.cancer = cancerType
         self.rsem = RSEM_Gene_data
         self.snp = SNP_data
@@ -70,26 +93,35 @@ class Aneuploidy:
         self.wd = wdir
         #self.Instability_score_samples = pd.DataFrame() 
 
-    # remove the normal samples from the segment file
-    def remove_normal_samples(self):
+
+    def remove_normal_samples(self, immune):
+        """
+        remove the samples of normal people in the data
+        :param immune: specify if the keratin and immune genes need to be removed for less noise
+        :return: snp_patients
+        """
         index_ = set(self.snp.index.tolist())
         normal_sample = list(filter(lambda i : i[0].split("-")[3] == ("10A"or"10B"or"11A"or"11B"or"12A"or"12B"or"13A"or"13B"or"14A"or"14B"), index_))       
         self.snp_patients = self.snp.drop(normal_sample, axis=0)
-        print(self.cancer, "patients' samples", len(self.snp_patients.index.tolist()))
-        # filter keratin and immunome genes
-        immune_keratin_genes = pd.read_excel("/home/rshen/genomic_instability/keratin_immune_etc.xlsx", sheetname="Table S4")
-        immune_keratin_gene_list = immune_keratin_genes["Gene"].tolist()
-        immune_keratin_gene_list_ = list(filter(lambda i : i in self.rsem.index.tolist(), immune_keratin_gene_list))
-        self.rsem.drop(immune_keratin_gene_list_, axis=0, inplace=True)
-        print("immune_keratin_genes removed.")
+        print(self.cancer, "patients' sample number:", len(self.snp_patients.index.tolist()))
+        # filter keratin and immune genes if needed
+        if immune == True:
+            immune_keratin_genes = pd.read_excel("/home/rshen/genomic_instability/keratin_immune_etc.xlsx", sheetname="Table S4")
+            immune_keratin_gene_list = immune_keratin_genes["Gene"].tolist()
+            immune_keratin_gene_list_ = list(filter(lambda i : i in self.rsem.index.tolist(), immune_keratin_gene_list))
+            self.rsem.drop(immune_keratin_gene_list_, axis=0, inplace=True)
+            print("immune_keratin_genes removed.")
         return self.snp_patients
-        
-    # return two lists of samples
-    # first lists with targeted chromosomal CNV, second list without such CNV
-    # chr stands for the targeted chromosome we are looking AttributeError
-    # threshold stands for the location of probes we are cutting off
-    # homozygous_deletion paper, defines threshold of one-copy loss (hemizygous deletion) as <-threshold
+
+
     def chr_CNV(self, threshold, threshold_start=0, threshold_end=0):
+        """
+
+        :param threshold: the threshold value of segment mean to distinguish the patients with specific cnv
+        :param threshold_start: the start point to cut off the specific chromosomal arm
+        :param threshold_end: the end point to cut off the specific chromosomal arm
+        :return: return two lists of samples, first list with the cnv, second list without the cnv
+        """
         self.snp_patients = self.snp_patients.sortlevel()
         index_ = set(filter(lambda x: x[1] == self.chr, self.snp_patients.index.tolist()))
         print("length_index_chr"+str(self.chr)+": ", len(index_))
@@ -152,8 +184,8 @@ class Aneuploidy:
                     elif -threshold<check<threshold:
                         self.normal_chr.append(i[0])
         
-        print(self.cancer+"_chromosome_"+str(self.chr)+self.arm+self.cond+"altered samples: ", len(self.altered_chr)/len(index_), '\n', 
-              self.cancer+"_chromosome_"+"normal samples: ", len(self.normal_chr)/len(index_))
+        print(self.cancer+"_chr_"+str(self.chr)+self.arm+self.cond+"cnv samples #: ", len(self.altered_chr)/len(index_), '\n',
+              self.cancer+" normal samples #: ", len(self.normal_chr)/len(index_))
         return self.altered_chr, self.normal_chr
 
     def calculate_Instability_score(self):
@@ -219,9 +251,14 @@ class Aneuploidy:
                 print(i, "Error! Sample doesn't relate to chromosome "+str(self.chr)+self.arm)
         self.chr_category.sort_values(axis=0, by="chr"+str(self.chr)+self.arm+"_CNV", inplace=True)
         self.samples_target = self.samples_target[self.chr_category.index.tolist()]
-        
-    # put normalized or raw_counts in condition
+
+
     def output_(self, condition):
+        """
+
+        :param condition: the RNA seq data type, normalized or raw counts
+        :return: none
+        """
         self.chr_category.to_csv(self.wd+self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_category_" + condition + ".txt", sep="\t")
         self.samples_target.to_csv(self.wd+self.cancer+str(self.chr)+self.arm+"_"+self.cond+"_sameples_" + condition + ".txt", sep="\t")
         #self.Iscore.to_csv(self.wd+self.cancer+"_Instability_Score_" + ".txt", sep="\t")
@@ -249,10 +286,11 @@ class Aneuploidy:
         PCA_loadings = pd.DataFrame(loadings, index=["PC1", "PC2","PC3","PC4"], columns=self.samples_target.index.tolist())
     #        print(self.cancer, "loadings", loadings)
         PCA_loadings.to_csv(self.wd+self.cancer + "_" +str(self.chr)+self.arm+"_"+self.cond +"_PCA_loadings_Jan_22.txt", sep="\t")
-        
+
+
 def GNI(tumor, chr, arm, var, seg, RNA_, CNV_cutoff, start, end, wdir):
     aneuploidy = Aneuploidy(tumor, RNA_, seg, chr, arm, var, wdir)
-    aneuploidy.remove_normal_samples()
+    aneuploidy.remove_normal_samples(False)
     if (arm == "p"):
         aneuploidy.chr_CNV(threshold=CNV_cutoff, threshold_start=start, threshold_end=end)
     elif (arm == "q"):
@@ -272,6 +310,7 @@ def GNI(tumor, chr, arm, var, seg, RNA_, CNV_cutoff, start, end, wdir):
 
 if __name__ == '__main__':
     wd = "/home/rshen/genomic_instability/chromosome8p/LOH_8p_paper/cnv_correlation_DGE/"
+    os.chdir(wd)
 
     # Investigate the CNV in chromosome 1q gain, 3 loss, 6p gain, 6q loss, 8p loss, 8q gain, 9p loss, 18q loss
     chr_alter_dict = {"loss": [(3, ''), (6, 'q'), (8, 'p'), (9, 'p'), (18, 'q')],
@@ -349,17 +388,17 @@ if __name__ == '__main__':
     # calculate instability scores
     """
     BRCA_gainof1q = Aneuploidy("BRCA", BRCA_RNA, BRCA_, 1, "q", "gain")
-    BRCA_gainof1q.remove_normal_samples()
+    BRCA_gainof1q.remove_normal_samples(False)
     BRCA_gainof1q.calculate_Instability_score()
     BRCA_gainof1q.output_("")
 
     SKCM_lossOf18q = Aneuploidy("SKCM", SKCM_RNA, SKCM_, 18, "q", "loss")
-    SKCM_lossOf18q.remove_normal_samples()
+    SKCM_lossOf18q.remove_normal_samples(False)
     SKCM_lossOf18q.calculate_Instability_score()
     SKCM_lossOf18q.output_("")
 
     UVM_lossOf18q = Aneuploidy("UVM", UVM_RNA, UVM_, 18, "q", "loss")
     UVM_lossOf18q.remove_normal_samples()
-    UVM_lossOf18q.calculate_Instability_score()
+    UVM_lossOf18q.calculate_Instability_score(False)
     UVM_lossOf18q.output_("")
     """

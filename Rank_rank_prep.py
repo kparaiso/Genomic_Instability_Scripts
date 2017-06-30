@@ -188,12 +188,61 @@ if __name__ == "__main__":
 
     # GSEA threshold 0.2
     # ================================================================================================
-#    wd_gsea = "C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/Winter_2017/Thres_0.2_GSEA/"
+#    wd_gsea = "C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/Winter_2017/Thres_0.2_GSEA_Immune/"
 #    geneset_overlap_cancers(wd_gsea)
     # ================================================================================================
     
-    
     # DGE threshold 0.2
     wd_dge = "C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/Winter_2017/Thres_0.2_DGE_All_Genes/"
-    genes_overlaps_DGE(wd_dge)
+#    genes_overlaps_DGE(wd_dge)
+    cnv_dge = pd.read_excel("C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/Winter_2017/Thres_0.2_DGE_All_Genes/cnv_dge_log2foldchange.xlsx", index_col=0, na_values=0)
+    cp_genesets = pd.read_table("C:/Users/wesle/OneDrive/College/Graeber Lab/Genomic_instability/Winter_2017/Thres_0.2_GSEA/c2.cp.v5.2.symbols.gmt", 
+                                dtype={"user_id": object, "username": object}, header=None, index_col=0)
     
+    # investigate the genesets upregulted/downregulated in the aneuploidy
+    idx = cnv_dge.sum(axis=1).sort_values(ascending=False).index
+    cnv_dge_ordered = cnv_dge.ix[idx]
+    cnv_dge_ordered.fillna(0, inplace=True)
+    # gene set dictionary
+    cp_genesets_dict_raw = cp_genesets.T.to_dict(orient='list')
+    genes_list = [[x for x in cp_genesets_dict_raw[k] if str(x) != "nan"] for k in cp_genesets_dict_raw]
+    cp_genesets_dict = dict(zip(cp_genesets_dict_raw.keys(), genes_list))
+    
+    """
+    # select the first three thousand genes and last three thousand genes
+    # look for the gene sets composed by those genes
+    geneset_up = defaultdict(float)
+    geneset_down = defaultdict(float)
+    ordered_genes = cnv_dge_ordered.index.tolist()
+    up_regulated_genes = ordered_genes[:3000]
+    down_regulated_genes = ordered_genes[len(ordered_genes)-3000:]
+    for gene in up_regulated_genes:
+        for key, val in cp_genesets_dict.items():
+            if gene in val:
+                if len(set(cp_genesets_dict[key]).intersection(up_regulated_genes)) >= len(cp_genesets_dict[key]) / 2:
+                    geneset_up[key] = len(set(cp_genesets_dict[key]).intersection(up_regulated_genes)) / len(cp_genesets_dict[key])
+    
+    for gene in down_regulated_genes:
+        for key, val in cp_genesets_dict.items():
+            if gene in val:
+                if len(set(cp_genesets_dict[key]).intersection(down_regulated_genes)) >= len(cp_genesets_dict[key]) / 2:
+                    geneset_down[key] = len(set(cp_genesets_dict[key]).intersection(down_regulated_genes)) / len(cp_genesets_dict[key])
+    
+    geneset_up = pd.Series(geneset_up).to_frame()
+    geneset_down = pd.Series(geneset_down).to_frame()
+    geneset_up.to_csv(wd_dge+"geneset_up.txt", sep="\t")    
+    geneset_down.to_csv(wd_dge+"geneset_down.txt", sep="\t")    
+    """
+    
+    # calculate the geneset scores for each cnv signatures
+    gene_set_scores = pd.DataFrame(index=cp_genesets.index, columns=cnv_dge.columns)
+
+    for i in gene_set_scores.index:
+        for c in gene_set_scores.columns:
+            gene_set_scores.loc[i,c] = (cnv_dge_ordered.loc[cp_genesets_dict[i], c]).sum()
+    
+    gene_set_scores.to_csv(wd_dge+"gene_set_scores.txt", sep="\t")
+    gene_set_scores_ordered = gene_set_scores.ix[gene_set_scores.sum(axis=1).sort_values().index]
+    gene_set_scores_ordered.to_csv(wd_dge+"gene_set_scores_ordered.txt", sep="\t")
+        
+        
